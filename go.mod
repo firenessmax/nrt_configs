@@ -1,4 +1,4 @@
-module nrt_configs
+module github.com/firenessmax/nrt_configs
 
 go 1.13
 

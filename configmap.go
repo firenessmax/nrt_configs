@@ -4,8 +4,11 @@ import (
 	"cloud.google.com/go/firestore"
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 )
+
+type eventHandler func(name string, value interface{})
 
 type configmap struct {
 	rwmu    sync.RWMutex
@@ -17,6 +20,28 @@ func NewConfigmap() *configmap {
 	return &configmap{
 		configs: map[string]configEntity{},
 	}
+}
+
+func (c *configmap) RegisterHandler(handler eventHandler, ref *firestore.CollectionRef) error {
+	if ref == nil {
+		return errors.New("nil Reference")
+	}
+	ctx := context.Background()
+
+	rookie := NewRTWorker(ctx, ref.Snapshots(ctx))
+	rookie.OnChange(func(docs []*firestore.DocumentSnapshot) error {
+		for _, data := range docs {
+			val := ConfigValue{}
+			err := data.DataTo(&val)
+			if err != nil {
+				return err
+			}
+			return safeHandle(handler, val.Name, val.Value)
+		}
+		return nil
+	})
+	c.workers = append(c.workers, rookie)
+	return nil
 }
 
 func (c *configmap) Register(name string, ref *firestore.CollectionRef) error {
@@ -128,4 +153,14 @@ func (cm *configmap) Exists(cnfg, name string) bool {
 		return ent.Exists(name)
 	}
 	return false
+}
+
+func safeHandle(handler eventHandler, name string, value interface{}) (e error) {
+	defer func() {
+		if e := recover(); e != nil {
+			e = fmt.Errorf("%s", e)
+		}
+	}()
+	handler(name, value)
+	return
 }

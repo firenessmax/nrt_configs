@@ -36,7 +36,9 @@ func (c *configmap) RegisterHandler(handler eventHandler, ref *firestore.Collect
 			if err != nil {
 				return err
 			}
-			return safeHandle(handler, val.Name, val.Value)
+			if e := safeHandle(handler, val.Name, val.Value); e != nil {
+				return e
+			}
 		}
 		return nil
 	})

@@ -92,6 +92,12 @@ func (cm *configmap) Listen() {
 	}
 }
 
+func (cm *configmap) GetAll(cnfg string, assigner func(name string, value interface{})) {
+	for name, value := range cm.configs[cnfg].values {
+		assigner(name, value)
+	}
+}
+
 func (cm *configmap) Get(cnfg, name string) interface{} {
 	//thread safe
 	cm.rwmu.RLock()

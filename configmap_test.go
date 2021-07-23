@@ -84,3 +84,31 @@ func TestConfigmapConcurrent(t *testing.T) {
 
 	dr.Delete(context.Background())
 }
+
+func Test_configmap_GetAll(t *testing.T) {
+	cm := &configmap{
+		configs: map[string]configEntity{
+			"configname": configEntity{values: map[string]interface{}{
+				"pata": []string{"patagonia"},
+			},
+			},
+		},
+	}
+	type bw struct {
+		Word       string
+		Exceptions []string
+	}
+
+	var words []bw
+
+	cm.GetAll("configname", func(name string, value interface{}) {
+		if v, correctType := value.([]string); correctType {
+			words = append(words, bw{
+				Word:       name,
+				Exceptions: v,
+			})
+		}
+	})
+
+	fmt.Printf("%#v", words)
+}

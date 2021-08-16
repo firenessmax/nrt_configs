@@ -47,12 +47,19 @@ func (c *configmap) RegisterHandler(handler eventHandler, ref *firestore.Collect
 }
 
 func (c *configmap) Register(name string, ref *firestore.CollectionRef) error {
+	ctx := context.Background()
+	return c.RegisterWithContext(ctx, name, ref)
+}
+
+func (c *configmap) RegisterWithCancel(name string, ref *firestore.CollectionRef) (context.CancelFunc, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	return cancel, c.RegisterWithContext(ctx, name, ref)
+}
+
+func (c *configmap) RegisterWithContext(ctx context.Context, name string, ref *firestore.CollectionRef) error {
 	if ref == nil {
 		return errors.New("nil Reference")
 	}
-	//TODO: handle context
-	ctx := context.Background()
-
 	rookie := NewRTWorker(ctx, ref.Snapshots(ctx))
 	rookie.OnChange(func(docs []*firestore.DocumentSnapshot) error {
 

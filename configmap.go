@@ -10,6 +10,8 @@ import (
 
 type eventHandler func(name string, value interface{})
 
+type eventHandlerById func(id string, value *firestore.DocumentSnapshot)
+
 type configmap struct {
 	rwmu    sync.RWMutex
 	configs map[string]configEntity
@@ -20,6 +22,25 @@ func NewConfigmap() *configmap {
 	return &configmap{
 		configs: map[string]configEntity{},
 	}
+}
+
+func (c *configmap) RegisterHandlerById(handler eventHandlerById, ref *firestore.CollectionRef) error {
+	if ref == nil {
+		return errors.New("nil Reference")
+	}
+	ctx := context.Background()
+
+	rookie := NewRTWorker(ctx, ref.Snapshots(ctx))
+	rookie.OnChange(func(docs []*firestore.DocumentSnapshot) error {
+		for _, data := range docs {
+			if e := safeHandleById(handler, data.Ref.ID, data); e != nil {
+				return e
+			}
+		}
+		return nil
+	})
+	c.workers = append(c.workers, rookie)
+	return nil
 }
 
 func (c *configmap) RegisterHandler(handler eventHandler, ref *firestore.CollectionRef) error {
@@ -177,5 +198,15 @@ func safeHandle(handler eventHandler, name string, value interface{}) (e error) 
 		}
 	}()
 	handler(name, value)
+	return
+}
+
+func safeHandleById(handler eventHandlerById, id string, value *firestore.DocumentSnapshot) (e error) {
+	defer func() {
+		if e := recover(); e != nil {
+			e = fmt.Errorf("%s", e)
+		}
+	}()
+	handler(id, value)
 	return
 }
